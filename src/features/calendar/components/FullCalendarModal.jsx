@@ -25,10 +25,10 @@ export default function FullCalendarModal({
   onClose,
   onOpenDayDetails,
 }) {
-  const currentRealDate = new Date();
-  const firstAllowedMonth = new Date(currentRealDate.getFullYear(), 0, 1);
+  const today = new Date();
+
   const [currentMonth, setCurrentMonth] = useState(
-    new Date(currentRealDate.getFullYear(), currentRealDate.getMonth(), 1)
+    new Date(today.getFullYear(), today.getMonth(), 1)
   );
 
   useEffect(() => {
@@ -43,48 +43,69 @@ export default function FullCalendarModal({
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
 
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startOffset = firstDay.getDay();
+  const calendarDays = useMemo(() => {
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
 
-  const days = useMemo(() => {
-    const results = [];
+    const startDay = firstDayOfMonth.getDay();
+    const daysInMonth = lastDayOfMonth.getDate();
 
-    for (let i = 0; i < startOffset; i += 1) {
-      results.push(null);
-    }
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
 
-    for (let i = 1; i <= daysInMonth; i += 1) {
-      const date = new Date(year, month, i);
-      const iso = toISODate(date);
+    const days = [];
 
-      const entry = entries?.[iso];
-      const tasks = Object.values(entry?.hardTasks || {});
-      const total = tasks.length;
-      const completed = tasks.filter((task) => task.completed).length;
-      const progress = total ? completed / total : 0;
-      const isComplete = total > 0 && completed === total;
-      const isToday = iso === toISODate(currentRealDate);
+    // PREVIOUS MONTH DAYS
+    for (let i = startDay - 1; i >= 0; i--) {
+      const day = prevMonthLastDay - i;
+      const date = new Date(year, month - 1, day);
 
-      results.push({
+      days.push({
         date,
-        iso,
-        label: formatDateLabel(date),
-        day: i,
-        progress,
-        isComplete,
-        isToday,
+        iso: toISODate(date),
+        day,
+        isCurrentMonth: false,
       });
     }
 
-    return results;
-  }, [daysInMonth, entries, month, year]);
+    // CURRENT MONTH DAYS
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
 
-  const canGoBack =
-    currentMonth.getFullYear() > firstAllowedMonth.getFullYear() ||
-    (currentMonth.getFullYear() === firstAllowedMonth.getFullYear() &&
-      currentMonth.getMonth() > firstAllowedMonth.getMonth());
+      days.push({
+        date,
+        iso: toISODate(date),
+        day: i,
+        isCurrentMonth: true,
+      });
+    }
+
+    // NEXT MONTH DAYS (fill grid to 42 cells)
+    const remaining = 42 - days.length;
+
+    for (let i = 1; i <= remaining; i++) {
+      const date = new Date(year, month + 1, i);
+
+      days.push({
+        date,
+        iso: toISODate(date),
+        day: i,
+        isCurrentMonth: false,
+      });
+    }
+
+    return days;
+  }, [year, month]);
+
+  function getProgress(dayIso) {
+    const entry = entries?.[dayIso];
+    if (!entry) return 0;
+
+    const tasks = Object.values(entry.hardTasks || {});
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.completed).length;
+
+    return total ? completed / total : 0;
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -94,13 +115,10 @@ export default function FullCalendarModal({
       >
         <div className="calendar-modal__header">
           <button
-            type="button"
-            className="calendar-modal__nav-button"
             onClick={() =>
-              canGoBack &&
               setCurrentMonth(new Date(year, month - 1, 1))
             }
-            disabled={!canGoBack}
+            className="calendar-modal__nav-button"
           >
             ←
           </button>
@@ -110,46 +128,43 @@ export default function FullCalendarModal({
           </h2>
 
           <button
-            type="button"
+            onClick={() =>
+              setCurrentMonth(new Date(year, month + 1, 1))
+            }
             className="calendar-modal__nav-button"
-            onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
           >
             →
           </button>
         </div>
 
         <div className="calendar-modal__weekday-row">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-            <span key={label} className="calendar-modal__weekday">
-              {label}
-            </span>
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <span key={d}>{d}</span>
           ))}
         </div>
 
         <div className="calendar-grid">
-          {days.map((day, index) => {
-            if (!day) {
-              return <div key={`empty-${index}`} className="calendar-day calendar-day--empty" />;
-            }
+          {calendarDays.map((day, index) => {
+            const progress = getProgress(day.iso);
+            const isToday =
+              day.iso === toISODate(new Date());
 
             return (
               <button
-                key={day.iso}
-                type="button"
-                className={[
-                  "calendar-day",
-                  day.isToday ? "calendar-day--today" : "",
-                  day.isComplete ? "calendar-day--complete" : "",
-                ]
-                  .join(" ")
-                  .trim()}
-                onClick={() => onOpenDayDetails(day.iso, day.label)}
+                key={index}
+                className={`calendar-day ${
+                  !day.isCurrentMonth ? "calendar-day--faded" : ""
+                } ${isToday ? "calendar-day--today" : ""}`}
+                onClick={() =>
+                  onOpenDayDetails(day.iso, formatDateLabel(day.date))
+                }
               >
-                <span className="calendar-day__number">{day.day}</span>
+                <span>{day.day}</span>
+
                 <div className="mini-ring">
                   <div
                     className="mini-ring-fill"
-                    style={{ width: `${day.progress * 100}%` }}
+                    style={{ width: `${progress * 100}%` }}
                   />
                 </div>
               </button>

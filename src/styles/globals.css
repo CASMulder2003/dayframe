@@ -827,3 +827,7 @@ textarea:focus-visible {
     padding: 10px;
   }
 }
+
+.calendar-day--faded {
+  opacity: 0.35;
+}
