@@ -1,162 +1,180 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import WeekCalendar from "../../features/calendar/components/WeekCalendar";
+import TaskCard from "../../features/tracker/components/TaskCard";
+import TaskModal from "../../features/tracker/components/TaskModal";
+import SoftGoalCard from "../../features/tracker/components/SoftGoalCard";
+import FullCalendarModal from "../../features/calendar/components/FullCalendarModal";
+import DayDetailsModal from "../../features/calendar/components/DayDetailsModal";
 
-function toISODate(date) {
-  return date.toISOString().split("T")[0];
-}
+import {
+  SOFT_GOALS,
+  createDefaultDayEntry,
+  TASK_DEFINITIONS,
+} from "../../data/defaultData";
 
-function formatMonthTitle(date) {
-  return date.toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
-}
+import useLocalStorage from "../../hooks/useLocalStorage";
+import useCurrentDate from "../../hooks/useCurrentDate";
+import { formatDisplayDate, toISODate } from "../../lib/date";
 
-function formatDateLabel(date) {
-  return date.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
+export default function HomePage() {
+  const today = useCurrentDate();
+  const todayISO = toISODate(today);
 
-export default function FullCalendarModal({
-  entries,
-  onClose,
-  onOpenDayDetails,
-}) {
-  const currentRealDate = new Date();
-  const firstAllowedMonth = new Date(currentRealDate.getFullYear(), 0, 1);
-  const [currentMonth, setCurrentMonth] = useState(
-    new Date(currentRealDate.getFullYear(), currentRealDate.getMonth(), 1)
+  const [selectedDateISO, setSelectedDateISO] = useState(todayISO);
+  const [entries, setEntries] = useLocalStorage("dayframe-entries", {});
+  const [activeTaskId, setActiveTaskId] = useState(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [dayDetails, setDayDetails] = useState(null);
+
+  const baseDate = new Date(today);
+  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
+
+  const selectedDate = new Date(selectedDateISO);
+
+  function getTasksForDay(date) {
+    const day = date.getDay();
+
+    const structure = {
+      0: ["morningRoutine", "gym", "deepWork", "cardio"],
+      1: ["morningRoutine", "gym", "deepWork", "cardio"],
+      2: ["morningRoutine", "gym", "deepWork"],
+      3: ["morningRoutine", "deepWork", "admin"],
+      4: ["morningRoutine", "gym", "deepWork", "cardio"],
+      5: ["morningRoutine", "gym", "deepWork"],
+      6: ["morningRoutine", "deepWork", "freeTime"],
+    };
+
+    return structure[day].map((id) => TASK_DEFINITIONS[id]);
+  }
+
+  const tasksForDay = useMemo(
+    () => getTasksForDay(selectedDate),
+    [selectedDateISO]
   );
 
-  useEffect(() => {
-    function handleEscape(e) {
-      if (e.key === "Escape") onClose();
-    }
+  function ensureEntry(dateIso) {
+    return entries[dateIso] || createDefaultDayEntry(new Date(dateIso));
+  }
 
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
+  const selectedEntry = ensureEntry(selectedDateISO);
 
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
+  function updateDay(updater) {
+    setEntries((prev) => ({
+      ...prev,
+      [selectedDateISO]: updater(ensureEntry(selectedDateISO)),
+    }));
+  }
 
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startOffset = firstDay.getDay();
+  function handleSaveTask(taskId, data) {
+    updateDay((existing) => ({
+      ...existing,
+      hardTasks: {
+        ...existing.hardTasks,
+        [taskId]: data,
+      },
+    }));
+    setActiveTaskId(null);
+  }
 
-  const days = useMemo(() => {
-    const results = [];
+  function handleOpenDayDetails(dateIso) {
+    setDayDetails({
+      entry: ensureEntry(dateIso),
+      dateLabel: formatDisplayDate(new Date(dateIso)),
+    });
+  }
 
-    for (let i = 0; i < startOffset; i += 1) {
-      results.push(null);
-    }
-
-    for (let i = 1; i <= daysInMonth; i += 1) {
-      const date = new Date(year, month, i);
-      const iso = toISODate(date);
-
-      const entry = entries?.[iso];
-      const tasks = Object.values(entry?.hardTasks || {});
-      const total = tasks.length;
-      const completed = tasks.filter((task) => task.completed).length;
-      const progress = total ? completed / total : 0;
-      const isComplete = total > 0 && completed === total;
-      const isToday = iso === toISODate(currentRealDate);
-
-      results.push({
-        date,
-        iso,
-        label: formatDateLabel(date),
-        day: i,
-        progress,
-        isComplete,
-        isToday,
-      });
-    }
-
-    return results;
-  }, [daysInMonth, entries, month, year]);
-
-  const canGoBack =
-    currentMonth.getFullYear() > firstAllowedMonth.getFullYear() ||
-    (currentMonth.getFullYear() === firstAllowedMonth.getFullYear() &&
-      currentMonth.getMonth() > firstAllowedMonth.getMonth());
+  const completedCount = tasksForDay.filter(
+    (t) => selectedEntry.hardTasks?.[t.id]?.completed
+  ).length;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="calendar-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="calendar-modal__header">
-          <button
-            type="button"
-            className="calendar-modal__nav-button"
-            onClick={() =>
-              canGoBack &&
-              setCurrentMonth(new Date(year, month - 1, 1))
-            }
-            disabled={!canGoBack}
-          >
-            ←
-          </button>
+    <div className="page">
+      <section className="hero">
+        <p className="eyebrow">Personal productivity system</p>
+        <h1 className="page-title">Dayframe</h1>
+        <p className="page-subtitle">
+          {formatDisplayDate(selectedDate)} • {completedCount}/
+          {tasksForDay.length} core tasks completed
+        </p>
+      </section>
 
-          <h2 className="calendar-modal__title">
-            {formatMonthTitle(currentMonth)}
-          </h2>
+      <WeekCalendar
+        baseDate={baseDate}
+        selectedDateISO={selectedDateISO}
+        todayISO={todayISO}
+        onSelectDay={setSelectedDateISO}
+        weekOffset={weekOffset}
+        setWeekOffset={setWeekOffset}
+        entries={entries}
+        onOpenFullCalendar={() => setShowCalendar(true)}
+      />
 
-          <button
-            type="button"
-            className="calendar-modal__nav-button"
-            onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
-          >
-            →
-          </button>
+      <section className="dashboard-grid">
+        <div className="card">
+          <h2 className="section-title">Daily Tasks</h2>
+
+          <div className="task-list">
+            {tasksForDay.map((task) => (
+              <TaskCard
+                key={task.id}
+                title={task.title}
+                taskData={selectedEntry.hardTasks?.[task.id]}
+                onClick={() => setActiveTaskId(task.id)}
+              />
+            ))}
+          </div>
         </div>
 
-        <div className="calendar-modal__weekday-row">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
-            <span key={label} className="calendar-modal__weekday">
-              {label}
-            </span>
+        <div className="card">
+          <h2 className="section-title">Soft Goals</h2>
+
+          {SOFT_GOALS.map((goal) => (
+            <SoftGoalCard
+              key={goal.id}
+              goal={goal}
+              value={selectedEntry.softGoals?.[goal.id] || ""}
+              onChange={(val) =>
+                updateDay((existing) => ({
+                  ...existing,
+                  softGoals: {
+                    ...existing.softGoals,
+                    [goal.id]: val,
+                  },
+                }))
+              }
+            />
           ))}
         </div>
+      </section>
 
-        <div className="calendar-grid">
-          {days.map((day, index) => {
-            if (!day) {
-              return <div key={`empty-${index}`} className="calendar-day calendar-day--empty" />;
-            }
+      {activeTaskId && (
+        <TaskModal
+          task={TASK_DEFINITIONS[activeTaskId]}
+          initialData={selectedEntry.hardTasks?.[activeTaskId]}
+          onClose={() => setActiveTaskId(null)}
+          onSave={(data) => handleSaveTask(activeTaskId, data)}
+        />
+      )}
 
-            return (
-              <button
-                key={day.iso}
-                type="button"
-                className={[
-                  "calendar-day",
-                  day.isToday ? "calendar-day--today" : "",
-                  day.isComplete ? "calendar-day--complete" : "",
-                ]
-                  .join(" ")
-                  .trim()}
-                onClick={() => onOpenDayDetails(day.iso, day.label)}
-              >
-                <span className="calendar-day__number">{day.day}</span>
-                <div className="mini-ring">
-                  <div
-                    className="mini-ring-fill"
-                    style={{ width: `${day.progress * 100}%` }}
-                  />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {showCalendar && (
+        <FullCalendarModal
+          entries={entries}
+          onClose={() => setShowCalendar(false)}
+          onOpenDayDetails={(dateIso, label) => {
+            setShowCalendar(false);
+            setDayDetails({ entry: ensureEntry(dateIso), dateLabel: label });
+          }}
+        />
+      )}
+
+      {dayDetails && (
+        <DayDetailsModal
+          entry={dayDetails.entry}
+          dateLabel={dayDetails.dateLabel}
+          onClose={() => setDayDetails(null)}
+        />
+      )}
     </div>
   );
 }

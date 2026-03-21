@@ -1,59 +1,123 @@
-import { TASK_DEFINITIONS } from "../../../data/defaultData";
+import { getWeekFromDate } from "../../../lib/date";
+import ProgressRing from "../../../components/ui/ProgressRing";
 
-export default function DayDetailsModal({ dateLabel, entry, onClose }) {
-  if (!entry) return null;
+export default function WeekCalendar({
+  baseDate,
+  selectedDateISO,
+  todayISO,
+  onSelectDay,
+  setWeekOffset,
+  weekOffset,
+  entries,
+  onOpenFullCalendar,
+}) {
+  const week = getWeekFromDate(baseDate);
 
-  const tasks = Object.entries(entry.hardTasks || {});
+  function getProgress(dayIso) {
+    const entry = entries?.[dayIso];
+    if (!entry) return 0;
+
+    const tasks = Object.values(entry.hardTasks || {});
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.completed).length;
+
+    return total ? completed / total : 0;
+  }
+
+  function goPrevWeek() {
+    setWeekOffset((prev) => Math.max(prev - 1, -1));
+  }
+
+  function goNextWeek() {
+    setWeekOffset((prev) => Math.min(prev + 1, 1));
+  }
+
+  function getTitle() {
+    if (weekOffset === -1) return "Previous Week";
+    if (weekOffset === 1) return "Next Week";
+    return "This Week";
+  }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="day-details-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="day-details-modal__header">
-          <div>
-            <p className="eyebrow">Day Overview</p>
-            <h2 className="day-details-modal__title">{dateLabel}</h2>
-          </div>
+    <section className="calendar-card">
+      <div className="calendar-card__header calendar-header-flex">
+        <div>
+          <p className="eyebrow">Week View</p>
+          <h2 className="section-title">{getTitle()}</h2>
+        </div>
 
-          <button type="button" className="modal-close" onClick={onClose}>
-            ×
+        <div className="calendar-controls">
+          <button
+            type="button"
+            disabled={weekOffset === -1}
+            onClick={goPrevWeek}
+            className="calendar-control-button"
+          >
+            ←
+          </button>
+
+          <button
+            type="button"
+            disabled={weekOffset === 1}
+            onClick={goNextWeek}
+            className="calendar-control-button"
+          >
+            →
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenFullCalendar}
+            className="calendar-control-button"
+          >
+            Calendar
           </button>
         </div>
-
-        <div className="day-details-modal__list">
-          {tasks.map(([taskId, task]) => {
-            const definition = TASK_DEFINITIONS[taskId];
-
-            return (
-              <div key={taskId} className="day-details-item">
-                <div className="day-details-item__top">
-                  <h3 className="day-details-item__title">
-                    {definition?.title || taskId}
-                  </h3>
-                  <span
-                    className={
-                      task.completed
-                        ? "day-details-item__status day-details-item__status--complete"
-                        : "day-details-item__status"
-                    }
-                  >
-                    {task.completed ? "Complete" : "Incomplete"}
-                  </span>
-                </div>
-
-                <p className="day-details-item__meta">
-                  {task.amount
-                    ? `${task.amount} ${definition?.unit || ""}`.trim()
-                    : "No amount logged"}
-                </p>
-
-                <p className="day-details-item__notes">
-                  {task.notes || "No notes added"}
-                </p>
-              </div>
-            );
-          })}
-        </div>
       </div>
-    </div>
+
+      <div className="week-calendar">
+        {week.map((day) => {
+          const isSelected = day.iso === selectedDateISO;
+          const isToday = day.iso === todayISO;
+          const progress = getProgress(day.iso);
+
+          return (
+            <button
+              key={day.iso}
+              type="button"
+              className={`week-day ${
+                isSelected ? "week-day--selected" : ""
+              } ${isToday ? "week-day--today" : ""}`}
+              onClick={() => onSelectDay(day.iso)}
+            >
+              <span className="week-day__label">{day.label}</span>
+
+              <div className="week-day__ring-wrapper">
+                <ProgressRing
+                  progress={progress}
+                  size={48}
+                  color={isSelected ? "#ffffff" : "#d84d57"}
+                  trackColor={
+                    isSelected
+                      ? "rgba(255,255,255,0.3)"
+                      : "#e4e7ef"
+                  }
+                />
+
+                <span className="week-day__number">
+                  {day.dayNumber}
+                </span>
+              </div>
+
+              {isToday && (
+                <span className="week-day__today-badge">
+                  Today
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
