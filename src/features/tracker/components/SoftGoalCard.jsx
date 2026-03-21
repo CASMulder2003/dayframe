@@ -5,7 +5,7 @@ export default function SoftGoalCard({ goal, value, onChange }) {
 
   return (
     <div className="soft-goal-card">
-      <div className="soft-goal-card__top">
+      <div className="soft-goal-row">
         <div>
           <h3 className="soft-goal-card__title">{goal.title}</h3>
           <p className="soft-goal-card__target">
@@ -15,10 +15,10 @@ export default function SoftGoalCard({ goal, value, onChange }) {
         </div>
 
         <input
-          className="soft-goal-card__input"
-          type={goal.inputType}
+          className="soft-goal-input"
+          type="number"
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           placeholder="0"
         />
       </div>

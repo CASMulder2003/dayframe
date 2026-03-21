@@ -1,29 +1,29 @@
 export default function TaskCard({ title, taskData, onClick }) {
-  const { completed, value, notes } = taskData;
-
   let summary = "Not completed yet";
 
-  if (completed && value && notes) {
-    summary = `${value} logged • Notes added`;
-  } else if (completed && value) {
-    summary = `${value} logged`;
-  } else if (completed && notes) {
-    summary = "Completed • Notes added";
-  } else if (completed) {
-    summary = "Completed";
+  if (taskData?.completed) {
+    if (taskData.amount && taskData.notes) {
+      summary = `${taskData.amount} logged • Notes added`;
+    } else if (taskData.amount) {
+      summary = `${taskData.amount} logged`;
+    } else if (taskData.notes) {
+      summary = "Completed • Notes added";
+    } else {
+      summary = "Completed";
+    }
   }
 
   return (
     <button type="button" className="task-card" onClick={onClick}>
-      <div className="task-card__left">
+      <div className="task-card__content">
         <div
           className={
-            completed
+            taskData?.completed
               ? "task-card__status task-card__status--complete"
               : "task-card__status"
           }
         >
-          {completed ? "✓" : ""}
+          {taskData?.completed ? "✓" : ""}
         </div>
 
         <div>
