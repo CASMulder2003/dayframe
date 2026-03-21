@@ -1,14 +1,10 @@
-import Navbar from "./Navbar"
+import Navbar from "./Navbar";
 
-function AppShell({ children }) {
+export default function AppShell({ children }) {
   return (
-    <div>
+    <div className="app-shell">
       <Navbar />
-      <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
-        {children}
-      </div>
+      <main className="app-main">{children}</main>
     </div>
-  )
+  );
 }
-
-export default AppShell

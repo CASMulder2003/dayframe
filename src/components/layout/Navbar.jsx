@@ -1,26 +1,41 @@
-function Navbar() {
+import { NavLink } from "react-router-dom";
+import { ROUTES } from "../../constants/routes";
+
+export default function Navbar() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        padding: "15px 25px",
-        borderBottom: "1px solid #eee",
-        background: "#fff",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-      }}
-    >
-      <div style={{ fontWeight: "bold" }}>Dayframe</div>
+    <header className="navbar">
+      <div className="navbar__inner">
+        <div className="navbar__brand">Dayframe</div>
 
-      <div style={{ display: "flex", gap: "20px" }}>
-        <span style={{ cursor: "pointer" }}>Home</span>
-        <span style={{ cursor: "pointer" }}>Stats</span>
-        <span style={{ cursor: "pointer" }}>Journal</span>
+        <nav className="navbar__nav">
+          <NavLink
+            to={ROUTES.HOME}
+            className={({ isActive }) =>
+              isActive ? "navbar__link navbar__link--active" : "navbar__link"
+            }
+          >
+            Home
+          </NavLink>
+
+          <NavLink
+            to={ROUTES.STATS}
+            className={({ isActive }) =>
+              isActive ? "navbar__link navbar__link--active" : "navbar__link"
+            }
+          >
+            Stats
+          </NavLink>
+
+          <NavLink
+            to={ROUTES.JOURNAL}
+            className={({ isActive }) =>
+              isActive ? "navbar__link navbar__link--active" : "navbar__link"
+            }
+          >
+            Journal
+          </NavLink>
+        </nav>
       </div>
-    </div>
-  )
+    </header>
+  );
 }
-
-export default Navbar
